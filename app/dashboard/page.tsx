@@ -1,27 +1,33 @@
-import Link from "next/link";
+"use client";
 
-const reports = [
-  {
-    residence: "Résidence Victor Hugo",
-    date: "Aujourd’hui",
-    time: "08:14",
-    score: "98%",
-  },
-  {
-    residence: "Résidence Capitole",
-    date: "Hier",
-    time: "07:52",
-    score: "95%",
-  },
-  {
-    residence: "Résidence Jean Jaurès",
-    date: "12 mai 2026",
-    time: "08:05",
-    score: "94%",
-  },
-];
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { supabase } from "../lib/supabase";
 
 export default function DashboardPage() {
+  const [reports, setReports] = useState<any[]>([]);
+
+  async function fetchReports() {
+    const { data, error } = await supabase
+      .from("reports")
+      .select(`
+        *,
+        residences (
+          name,
+          address
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setReports(data);
+    }
+  }
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
   return (
     <main className="min-h-screen bg-gray-50 px-6 py-8 pb-28">
       <div className="mx-auto max-w-md">
@@ -29,7 +35,7 @@ export default function DashboardPage() {
           <div>
             <p className="text-gray-500">Bonjour,</p>
             <h1 className="text-2xl font-bold text-gray-900">
-              ORPI Toulouse 👋
+              Dashboard Syndic 👋
             </h1>
           </div>
 
@@ -49,17 +55,19 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <p className="mt-3 text-sm text-blue-100">↑ 4% ce mois</p>
+          <p className="mt-3 text-sm text-blue-100">
+            Suivi des interventions en temps réel
+          </p>
         </div>
 
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-8">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                Activité du jour
+                Activité récente
               </h2>
               <p className="text-sm text-gray-500 mt-1">
-                3 passages prévus • 1 réclamation en attente
+                {reports.length} rapport(s) enregistrés
               </p>
             </div>
 
@@ -70,67 +78,96 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Derniers rapports</h2>
+          <h2 className="text-xl font-bold text-gray-900">
+            Derniers rapports
+          </h2>
 
           <Link href="/residences" className="text-blue-600 text-sm font-semibold">
-            Voir tout
+            Résidences
           </Link>
         </div>
 
         <div className="space-y-4">
+          {reports.length === 0 && (
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 text-center">
+              <p className="text-gray-500">
+                Aucun rapport envoyé pour le moment.
+              </p>
+            </div>
+          )}
+
           {reports.map((report) => (
-            <Link
-              href="/reports/1"
-              key={report.residence}
-              className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center justify-between"
+            <div
+              key={report.id}
+              className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100"
             >
-              <div>
-                <h3 className="font-bold text-gray-900">{report.residence}</h3>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-gray-900 text-lg">
+                    {report.residences?.name || "Résidence"}
+                  </h3>
 
-                <p className="text-sm text-gray-500 mt-1">
-                  {report.date} - {report.time}
-                </p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {report.residences?.address || "Adresse non renseignée"}
+                  </p>
+                </div>
 
-                <span className="inline-block mt-2 rounded-full bg-green-100 text-green-700 text-xs font-semibold px-3 py-1">
-                  Score {report.score}
+                <span
+                  className={`rounded-full text-xs font-bold px-3 py-1 ${
+                    report.score >= 80
+                      ? "bg-green-100 text-green-700"
+                      : report.score >= 50
+                      ? "bg-orange-100 text-orange-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {report.score}%
                 </span>
               </div>
 
-              <span className="text-gray-400 text-2xl">›</span>
-            </Link>
+              <p className="text-gray-700 mt-4">
+                {report.comment}
+              </p>
+
+              {report.image_url && (
+                <img
+                  src={report.image_url}
+                  alt="Photo intervention"
+                  className="mt-4 rounded-2xl w-full h-64 object-cover"
+                />
+              )}
+
+              <div className="mt-5 flex items-center justify-between">
+                <span className="text-sm text-gray-400">
+                  {new Date(report.created_at).toLocaleString()}
+                </span>
+
+                <span className="bg-blue-100 text-blue-700 px-4 py-2 rounded-2xl text-sm font-semibold">
+                  {report.status}
+                </span>
+              </div>
+            </div>
           ))}
         </div>
       </div>
 
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-white border border-gray-100 shadow-xl rounded-3xl px-4 py-3 flex items-center justify-between">
-        <Link
-          href="/dashboard"
-          className="flex flex-col items-center text-blue-600 text-xs font-semibold"
-        >
+        <Link href="/dashboard" className="flex flex-col items-center text-blue-600 text-xs font-semibold">
           <span className="text-2xl">🏠</span>
           Accueil
         </Link>
 
-        <Link
-          href="/residences"
-          className="flex flex-col items-center text-gray-500 text-xs font-semibold"
-        >
+        <Link href="/residences" className="flex flex-col items-center text-gray-500 text-xs font-semibold">
           <span className="text-2xl">🏢</span>
           Résidences
         </Link>
 
-        <Link
-          href="/complaints"
-          className="flex flex-col items-center text-gray-500 text-xs font-semibold"
-        >
+        <Link href="/complaints" className="flex flex-col items-center text-gray-500 text-xs font-semibold">
           <span className="text-2xl">⚠️</span>
           Réclamations
         </Link>
 
-        <Link
-          href="/login"
-          className="flex flex-col items-center text-gray-500 text-xs font-semibold"
-        >
+        <Link href="/login" className="flex flex-col items-center text-gray-500 text-xs font-semibold">
           <span className="text-2xl">👤</span>
           Profil
         </Link>
